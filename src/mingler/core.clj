@@ -105,11 +105,11 @@
   "Create a new collection with the given name. Returns the collection."
   ([database collection-name]
    (.createCollection ^MongoDatabase database
-                      ^String collection-name)
+                      (name collection-name))
    (collection database collection-name))
   ([database collection-name create-collection-options]
    (.createCollection ^MongoDatabase database
-                      ^String collection-name
+                      (name collection-name)
                       (i/->CreateCollectionOptions create-collection-options))
    (collection database collection-name)))
 
@@ -118,12 +118,12 @@
   ([session database collection-name]
    (.createCollection ^MongoDatabase database
                       ^ClientSession session
-                      ^String collection-name)
+                      (name collection-name))
    (collection database collection-name))
   ([session database collection-name create-collection-options]
    (.createCollection ^MongoDatabase database
                       ^ClientSession session
-                      ^String collection-name
+                      (name collection-name)
                       (i/->CreateCollectionOptions create-collection-options))
    (collection database collection-name)))
 
