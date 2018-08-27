@@ -16,16 +16,3 @@
                            (m/sort {:_id -1})
                            (m/into []))]
         (println (pr-str document))))))
-
-
-(comment
-
-  (-main "Greetings")
-  (-main "Mongler" "says" "hi")
-
-  (with-open [client (m/open-client {:servers [{:host "localhost"}]})]
-    (let [db (m/database client :hello-mongo)
-          coll (m/collection db :hello-runs)]
-      (m/delete-many coll {})))
-
-  )
