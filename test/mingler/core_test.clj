@@ -267,12 +267,12 @@
       (m/count coll) => 1))
 
   (testing "manual commit in with-tx"
-      (with-open [session (m/open-session client)]
-        (m/with-tx session
-          (m/insert-tx session coll {:a 1})
-          (m/commit-transaction session)))
-      (fact
-        (m/count coll) => 2)))
+    (with-open [session (m/open-session client)]
+      (m/with-tx session
+        (m/insert-tx session coll {:a 1})
+        (m/commit-transaction session)))
+    (fact
+      (m/count coll) => 2)))
 
 ;;
 ;; Indexing:
