@@ -32,7 +32,7 @@
       (binding [coll coll*]
         (t)
         (try
-          (m/drop-collection coll*)
+          (m/drop-collection db coll*)
           (catch Exception _))))))
 
 ;;
@@ -51,23 +51,23 @@
 ;;
 
 (deftest ^:integration insert-test
-  (m/insert coll {:foo "hello"})
+  (m/insert db coll {:foo "hello"})
   (fact
-    (m/find-one coll {}) => {:_id ObjectId :foo "hello"}))
+    (m/find-one db coll {}) => {:_id ObjectId :foo "hello"}))
 
 (deftest ^:integration insert-with-id-test
   (let [document {:_id (uuid/v1)
                   :foo "hello"}]
-    (m/insert coll document)
+    (m/insert db coll document)
     (fact
-      (m/find-one coll {}) => document)))
+      (m/find-one db coll {}) => document)))
 
 (deftest ^:integration insert-many
   (let [documents [{:_id "1" :foo "a"}
                    {:_id "2" :foo "b"}
                    {:_id "3" :foo "c"}]]
-    (m/insert-many coll documents)
-    (let [found-documents (m/find-all coll {})]
+    (m/insert-many db coll documents)
+    (let [found-documents (m/find-all db coll {})]
       (fact (set documents) => (just (set found-documents))))))
 
 ;;
@@ -79,8 +79,8 @@
                    {:_id "2" :foo "b"}
                    {:_id "3" :foo "c"}]
         r (atom [])]
-    (m/insert-many coll documents)
-    (-> (m/query coll)
+    (m/insert-many db coll documents)
+    (-> (m/query db coll)
         (m/for-each (partial swap! r conj)))
     (fact
       @r => (in-any-order [{:_id "1" :foo "a"}
@@ -95,9 +95,9 @@
   (let [documents [{:_id "1" :foo "a"}
                    {:_id "2" :foo "b"}
                    {:_id "3" :foo "c"}]]
-    (m/insert-many coll documents)
+    (m/insert-many db coll documents)
     (fact
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/into []))
       => (in-any-order [{:_id "1" :foo "a"}
                         {:_id "2" :foo "b"}
@@ -108,34 +108,34 @@
 ;;
 
 (deftest ^:integration update-test
-  (m/insert coll {:_id "1"
+  (m/insert db coll {:_id "1"
                   :foo "fofo"
                   :bar "baba"})
   (fact
-    (m/find-all coll {:_id "1"}) => [{:_id "1"
+    (m/find-all db coll {:_id "1"}) => [{:_id "1"
                                       :foo "fofo"
                                       :bar "baba"}])
   (fact
-    (m/update coll {:_id "1"} {$set {:bar "zaza"}}) => {:matched-count 1
+    (m/update db coll {:_id "1"} {$set {:bar "zaza"}}) => {:matched-count 1
                                                         :modified-count 1})
   (fact
-    (m/find-all coll {:_id "1"}) => [{:_id "1"
+    (m/find-all db coll {:_id "1"}) => [{:_id "1"
                                       :foo "fofo"
                                       :bar "zaza"}]))
 
 (deftest ^:integration update-many-test
-  (m/insert-many coll [{:_id "1" :a "yes" :b "x"}
+  (m/insert-many db coll [{:_id "1" :a "yes" :b "x"}
                        {:_id "2" :a "yes" :b "x"}
                        {:_id "3" :a "no" :b "x"}])
   (fact "before update-many"
-    (m/find-all coll {}) => (in-any-order [{:_id "1" :a "yes" :b "x"}
+    (m/find-all db coll {}) => (in-any-order [{:_id "1" :a "yes" :b "x"}
                                            {:_id "2" :a "yes" :b "x"}
                                            {:_id "3" :a "no" :b "x"}]))
   (fact
-    (m/update-many coll {:a "yes"} {$set {:b "y"}}) => {:matched-count 2
+    (m/update-many db coll {:a "yes"} {$set {:b "y"}}) => {:matched-count 2
                                                         :modified-count 2})
   (fact "after update-many, all documents with :a = \"yes\" now have :b = \"y:\""
-    (m/find-all coll {}) => (in-any-order [{:_id "1" :a "yes" :b "y"}
+    (m/find-all db coll {}) => (in-any-order [{:_id "1" :a "yes" :b "y"}
                                            {:_id "2" :a "yes" :b "y"}
                                            {:_id "3" :a "no" :b "x"}])))
 
@@ -144,26 +144,26 @@
 ;;
 
 (deftest ^:integration delete-test
-  (m/insert coll {:_id "1"})
+  (m/insert db coll {:_id "1"})
   (fact
-    (m/find-one coll {:_id "1"}) => {:_id "1"})
+    (m/find-one db coll {:_id "1"}) => {:_id "1"})
   (fact
-    (m/delete coll {:_id "1"}) => {:matched-count 1})
+    (m/delete db coll {:_id "1"}) => {:matched-count 1})
   (fact
-    (m/find-one coll {:_id "1"}) => nil))
+    (m/find-one db coll {:_id "1"}) => nil))
 
 (deftest ^:integration delete-many-test
-  (m/insert-many coll [{:_id "1" :a "yes"}
+  (m/insert-many db coll [{:_id "1" :a "yes"}
                        {:_id "2" :a "yes"}
                        {:_id "3" :a "no"}])
   (fact "before delete-many"
-    (m/find-all coll {}) => (in-any-order [{:_id "1" :a "yes"}
+    (m/find-all db coll {}) => (in-any-order [{:_id "1" :a "yes"}
                                            {:_id "2" :a "yes"}
                                            {:_id "3" :a "no"}]))
   (fact
-    (m/delete-many coll {:a "yes"}) => {:matched-count 2})
+    (m/delete-many db coll {:a "yes"}) => {:matched-count 2})
   (fact "before delete-many"
-    (m/find-all coll {}) => [{:_id "3" :a "no"}]))
+    (m/find-all db coll {}) => [{:_id "3" :a "no"}]))
 
 ;;
 ;; Query:
@@ -175,27 +175,27 @@
                    {:_id "3" :a "n" :b 3}
                    {:_id "4" :a "n" :b 2}
                    {:_id "5" :a "n" :b 1}]]
-    (m/insert-many coll documents)
+    (m/insert-many db coll documents)
 
     (fact "query all"
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/into []))
       => (in-any-order documents))
 
     (fact "query all, sorted by :b, descending order"
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/sort {:b -1})
           (m/into []))
       => (sort-by :b > documents))
 
     (fact "query all, sorted by :b, ascending order"
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/sort {:b 1})
           (m/into []))
       => (sort-by :b < documents))
 
     (fact "query, filter :a = \"n\", sorted by :b, ascending order"
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/filter {:a "n"})
           (m/sort {:b 1})
           (m/into []))
@@ -204,7 +204,7 @@
               (sort-by :b <)))
 
     (fact "query, filter :a = \"n\", sorted by :b, skip one, limit 1"
-      (-> (m/query coll)
+      (-> (m/query db coll)
           (m/filter {:a "n"})
           (m/sort {:b 1})
           (m/skip 1)
@@ -225,12 +225,12 @@
 
 (deftest count-test
   (facts
-    (m/count coll) => 0
-    (m/count coll {:a {$gt 1}}) => 0)
-  (m/insert-many coll [{:a 1}, {:a 2}, {:a 3}])
+    (m/count db coll) => 0
+    (m/count db coll {:a {$gt 1}}) => 0)
+  (m/insert-many db coll [{:a 1}, {:a 2}, {:a 3}])
   (facts
-    (m/count coll) => 3
-    (m/count coll {:a {$gt 1}}) => 2))
+    (m/count db coll) => 3
+    (m/count db coll {:a {$gt 1}}) => 2))
 
 ;;
 ;; Transactions:
@@ -238,41 +238,41 @@
 
 (deftest ^:integration insert-tx-test
   (fact
-    (m/count coll) => 0)
+    (m/count db coll) => 0)
 
   (testing "manual abort in with-tx"
     (with-open [session (m/open-session client)]
       (m/with-tx session
-        (m/insert-tx session coll {:a 1})
+        (m/insert-tx session db coll {:a 1})
         (m/abort-transaction session)))
     (fact
-      (m/count coll) => 0))
+      (m/count db coll) => 0))
 
   (testing "exception in with-tx"
     (try+
       (with-open [session (m/open-session client)]
         (m/with-tx session
-          (m/insert-tx session coll {:a 1})
+          (m/insert-tx session db coll {:a 1})
           (throw+ {:error :oh-no})))
       (catch [:error :oh-no] _
         nil))
     (fact
-      (m/count coll) => 0))
+      (m/count db coll) => 0))
 
   (testing "normal execution with-tx"
     (with-open [session (m/open-session client)]
       (m/with-tx session
-        (m/insert-tx session coll {:a 1})))
+        (m/insert-tx session db coll {:a 1})))
     (fact
-      (m/count coll) => 1))
+      (m/count db coll) => 1))
 
   (testing "manual commit in with-tx"
     (with-open [session (m/open-session client)]
       (m/with-tx session
-        (m/insert-tx session coll {:a 1})
+        (m/insert-tx session db coll {:a 1})
         (m/commit-transaction session)))
     (fact
-      (m/count coll) => 2)))
+      (m/count db coll) => 2)))
 
 ;;
 ;; Indexing:
@@ -296,23 +296,30 @@
   (def db (m/database client :foo))
   (def coll (m/collection db :foo))
 
+  (m/get-indexes db coll)
+  (m/create-index db coll [:compound
+                           [:ascending :foo]
+                           [:descending :boz :biz]]
+                  {:name "Bar"})
+  (m/drop-index db coll "Bar")
+
   (with-open [session (m/open-session client)]
     (m/with-tx session
-      (tx-insert coll session {:_id "1" :name "Fofo"})))
+      (tx-insert db coll session {:_id "1" :name "Fofo"})))
 
 
   (let [documents [{:_id "1" :name "Johnny" :age 17}
                    {:_id "2" :name "Amy" :age 18}
                    {:_id "3" :name "Kevin" :age 19}]]
-    (m/insert-many coll documents))
+    (m/insert-many db coll documents))
 
-  (-> (m/query coll)
+  (-> (m/query db coll)
       (m/filter {:age {$gte 18}})
       (m/into []))
   ;=> [{:_id "2", :name "Amy", :age 18}
   ;    {:_id "3", :name "Kevin", :age 19}]
 
-  (m/delete-many coll {})
+  (m/delete-many db coll {})
 
   (m/close-client client)
   )

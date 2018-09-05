@@ -13,7 +13,18 @@
            (com.mongodb.connection ClusterSettings$Builder
                                    SslSettings$Builder)
            (com.mongodb.client.result UpdateResult DeleteResult)
-           (com.mongodb.client.model UpdateOptions InsertOneOptions InsertManyOptions CountOptions CreateCollectionOptions IndexOptionDefaults ValidationOptions ValidationLevel ValidationAction Collation IndexOptions)
+           (com.mongodb.client.model UpdateOptions
+                                     InsertOneOptions
+                                     InsertManyOptions
+                                     CountOptions
+                                     CreateCollectionOptions
+                                     ValidationOptions
+                                     ValidationLevel
+                                     ValidationAction
+                                     Collation
+                                     Indexes
+                                     IndexOptions
+                                     IndexOptionDefaults)
            (java.util.concurrent TimeUnit)))
 
 ;;
@@ -245,11 +256,54 @@
 ;;
 
 (def index-options-setter
-  {})
+  {:background                (fn [^IndexOptions options value] (.background options value))
+   :unique                    (fn [^IndexOptions options value] (.unique options value))
+   :name                      (fn [^IndexOptions options value] (.name options value))
+   :sparse                    (fn [^IndexOptions options value] (.sparse options value))
+   :expire-after-seconds      (fn [^IndexOptions options value] (.expireAfter options value TimeUnit/SECONDS))
+   :version                   (fn [^IndexOptions options value] (.version options value))
+   :weights                   (fn [^IndexOptions options value] (.weights options (c/to-db-value value)))
+   :default-language          (fn [^IndexOptions options value] (.defaultLanguage options value))
+   :language-override         (fn [^IndexOptions options value] (.languageOverride options value))
+   :text-version              (fn [^IndexOptions options value] (.textVersion options value))
+   :sphere-version            (fn [^IndexOptions options value] (.sphereVersion options value))
+   :bits                      (fn [^IndexOptions options value] (.bits options value))
+   :min                       (fn [^IndexOptions options value] (.min options value))
+   :max                       (fn [^IndexOptions options value] (.max options value))
+   :bucket-size               (fn [^IndexOptions options value] (.bucketSize options value))
+   :storage-engine            (fn [^IndexOptions options value] (.storageEngine options (c/to-db-value value)))
+   :partial-filter-expression (fn [^IndexOptions options value] (.partialFilterExpression options (c/to-db-value value)))
+   :collation                 (fn [^IndexOptions options value] (.collation options (->Collation value)))})
 
-(defn ->IndexOptions ^IndexOptions [index-options]
-  ; TODO (if (instance? ))
-  )
+(defn ->IndexOptions ^IndexOptions [options]
+  (u/apply-setters IndexOptions index-options-setter options))
+
+;;
+;; Indexes:
+;;
+
+(defmulti index first)
+
+(defmethod index :ascending [[_ & fields]]
+  (Indexes/ascending ^java.util.List (map name fields)))
+
+(defmethod index :descending [[_ & fields]]
+  (Indexes/descending ^java.util.List (map name fields)))
+
+(defmethod index :geo2dsphere [[_ & fields]]
+  (Indexes/geo2dsphere ^java.util.List (map name fields)))
+
+(defmethod index :geo-haystack [[_ field additional]]
+  (Indexes/geoHaystack (name field) (index additional)))
+
+(defmethod index :text [[_ field]]
+  (Indexes/text (name field)))
+
+(defmethod index :hashed [[_ field]]
+  (Indexes/hashed (name field)))
+
+(defmethod index :compound [[_ & indexes]]
+  (Indexes/compoundIndex ^java.util.List (map index indexes)))
 
 ;;
 ;; MongoClientSettings:
@@ -307,4 +361,3 @@
     ;; TODO: Add all applicable settings, like pool, cluster, concerns, etc...
     ;; Build MongoClientSettings:
     (.build builder)))
-

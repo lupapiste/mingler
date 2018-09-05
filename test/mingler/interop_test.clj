@@ -9,7 +9,7 @@
 
 (deftest client-config->client-settings-test
   (fact "unknown keys are reported"
-    (client-config->client-settings {:serverz []}) => (throws-ex-info #"Value does not match schem" any))
+    (client-config->client-settings {:serverz []}) =throws=> (throws-ex-info #"Value does not match schema" any))
   (let [config (client-config->client-settings nil)]
     (fact
       (-> config .getClusterSettings .getHosts .size) => 1)
@@ -21,14 +21,14 @@
 (deftest ->ReadConcern-test
   (facts
     (->ReadConcern nil) => nil
-    (->ReadConcern :foo) => (throws-ex-info "unknown key: :foo" any)
+    (->ReadConcern :foo) =throws=> (throws-ex-info "unknown key: :foo" any)
     (->ReadConcern :local) => ReadConcern/LOCAL
     (->ReadConcern ReadConcern/LOCAL) => ReadConcern/LOCAL))
 
 (deftest ->WriteConcern-test
   (facts
     (->WriteConcern nil) => nil
-    (->WriteConcern :foo) => (throws-ex-info "unknown key: :foo" any)
+    (->WriteConcern :foo) =throws=> (throws-ex-info "unknown key: :foo" any)
     (->WriteConcern :journaled) => WriteConcern/JOURNALED
     (->WriteConcern WriteConcern/JOURNALED) => WriteConcern/JOURNALED))
 
@@ -54,7 +54,7 @@
   (fact
     (-> {} ->ClientSessionOptions) => ClientSessionOptions)
   (fact
-    (-> {:foo 42} ->ClientSessionOptions) => (throws-ex-info "unknown key: :foo" any))
+    (-> {:foo 42} ->ClientSessionOptions) =throws=> (throws-ex-info "unknown key: :foo" any))
   (fact
     (-> {} ->ClientSessionOptions .getDefaultTransactionOptions .getReadConcern) => nil)
   (fact
