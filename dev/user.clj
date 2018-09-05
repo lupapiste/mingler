@@ -1,20 +1,19 @@
 (ns user
-  (:require [eftest.runner :as eftest]))
+  (:require [clojure.tools.namespace.repl :as repl]
+            [eftest.runner :as eftest]))
 
-(def reset identity)
-(def start identity)
-(def stop identity)
+(def reset repl/refresh)
+(def start (constantly :ok))
+(def stop (constantly :ok))
 
 (defn run-unit-tests []
   (eftest/run-tests
-    (->> ["test" "core/test"]
-         (mapcat eftest.runner/find-tests)
+    (->> (eftest.runner/find-tests "test")
          (remove (comp :integration meta))
          (remove (comp :slow meta)))
     {:multithread? true}))
 
 (defn run-all-tests []
   (eftest/run-tests
-    (->> ["test" "core/test"]
-         (mapcat eftest.runner/find-tests))
+    (eftest.runner/find-tests "test")
     {:multithread? false}))
