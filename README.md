@@ -49,18 +49,17 @@ Small [example application](./examples/hello-mingler):
 ```clj
 (ns hello-mingler.core
   (:require [mingler.core :as m]
-            [mingler.op :refer :all]))
+            [mingler.op :refer :all])
+  (:gen-class))
 
 (defn -main [& args]
   (with-open [client (m/open-client {:servers [{:host "localhost"}]})]
+    (let [db (m/database client :hello-mongo)]
 
-    (let [db (m/database client :hello-mongo)
-          coll (m/collection db :hello-runs)]
+      (m/insert db :hello-runs {:_id  (java.util.Date.)
+                                :args (vec args)})
 
-      (m/insert coll {:_id (java.util.Date.)
-                      :args (vec args)})
-
-      (doseq [document (-> (m/query coll)
+      (doseq [document (-> (m/query db :hello-runs)
                            (m/sort {:_id -1})
                            (m/into []))]
         (println (pr-str document))))))
@@ -86,7 +85,7 @@ example `open-client`. These functions returns instances that implement the `jav
 interface, so they can be used with `clojure.core/with-open`. For example:
 
 ```clj
-(with-open [cursor (-> (m/query coll)
+(with-open [cursor (-> (m/query db coll)
                        (m/filter {:age {$gt 18}})
                        (m/open-cursor))]
     (->> cursor
@@ -100,7 +99,7 @@ can happen easily with lazy sequences. Fox example, consider a modified version 
 
 ```clj
 ; Don't so this:
-(with-open [cursor (-> (m/query coll)
+(with-open [cursor (-> (m/query db coll)
                        (m/filter {:age {$gt 18}})
                        (m/open-cursor))]
     (->> cursor
@@ -116,7 +115,7 @@ Mingler has some helpers to fully realize the cursors. For example, the `mingler
 that behaves like `clojure.core/into`, but accepts cursor. It can be used like this:
 
 ```clj
-(-> (m/query coll)
+(-> (m/query db coll)
     (m/filter {:age {$gte 18}})
     (m/into []))
 ;=> [{:_id "2", :name "Amy", :age 18} 
@@ -141,9 +140,9 @@ Same using Mingler:
 
 ```clj
 ; in Clojure
-(m/update-one collection {:_id "1"}
-                         {$set {:name "Fresh Breads and Tulips"}}
-                         {:bypass-document-validation true})
+(m/update-one db coll {:_id "1"}
+                      {$set {:name "Fresh Breads and Tulips"}}
+                      {:bypass-document-validation true})
 ```
 
 ## Testing
@@ -170,7 +169,6 @@ timeout, because the contacted server tries to achieve a quorum with a replica s
 
 ## Todo
 
-* Implement index management
 * Implement the watch thingy
 * Implement the aggregate API
 * Implement atomic findOneAnd* methods

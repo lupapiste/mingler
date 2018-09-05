@@ -4,10 +4,10 @@
   (:require [mingler.conversion :as c]
             [mingler.interop :as i])
   (:import (java.util List)
+           (com.mongodb Function Block)
            (com.mongodb.client MongoClients MongoClient ClientSession
                                MongoDatabase MongoCollection
                                FindIterable MongoCursor)
-           (com.mongodb Function Block)
            (org.bson.conversions Bson)))
 
 ;;
@@ -84,12 +84,17 @@
 ;; Collections
 ;;
 
+(defn- collection? [c]
+  (instance? MongoCollection c))
+
 (defn collection
   "Given a collection name returns a MongoDB collection instance.
   Collection instances can be shared between threads."
   ^MongoCollection
-  [db collection]
-  (.getCollection ^MongoDatabase db (name collection)))
+  [db coll]
+  (if (collection? coll)
+    coll
+    (.getCollection ^MongoDatabase db (name coll))))
 
 (defn collections
   "Returns description of all collections."
@@ -103,40 +108,39 @@
 
 (defn create-collection
   "Create a new collection with the given name. Returns the collection."
-  ([database collection-name]
-   (.createCollection ^MongoDatabase database
+  ([db collection-name]
+   (.createCollection ^MongoDatabase db
                       (name collection-name))
-   (collection database collection-name))
-  ([database collection-name create-collection-options]
-   (.createCollection ^MongoDatabase database
+   (collection db collection-name))
+  ([db collection-name create-collection-options]
+   (.createCollection ^MongoDatabase db
                       (name collection-name)
                       (i/->CreateCollectionOptions create-collection-options))
-   (collection database collection-name)))
+   (collection db collection-name)))
 
 (defn create-collection-tx
   "Create a new collection with the given name. Returns the collection."
-  ([session database collection-name]
-   (.createCollection ^MongoDatabase database
+  ([session db collection-name]
+   (.createCollection ^MongoDatabase db
                       ^ClientSession session
                       (name collection-name))
-   (collection database collection-name))
-  ([session database collection-name create-collection-options]
-   (.createCollection ^MongoDatabase database
+   (collection db collection-name))
+  ([session db collection-name create-collection-options]
+   (.createCollection ^MongoDatabase db
                       ^ClientSession session
                       (name collection-name)
                       (i/->CreateCollectionOptions create-collection-options))
-   (collection database collection-name)))
+   (collection db collection-name)))
 
 (defn drop-collection
   "Drops this collection from the Database."
-  [collection]
-  (.drop ^MongoCollection collection))
+  [db coll]
+  (.drop (collection db coll)))
 
 (defn drop-collection-tx
   "Drops this collection from the Database."
-  [collection session]
-  (.drop ^MongoCollection collection
-         ^ClientSession session))
+  [db coll session]
+  (.drop (collection db coll) ^ClientSession session))
 
 ;;
 ;; Sessions:
@@ -219,58 +223,56 @@
 
 (defn insert
   "Insert document to the collection. If the document is missing an identifier, the driver should
-  generate one. Returns the collection."
-  ([collection document]
-   (.insertOne ^MongoCollection collection
-               (c/to-db-value document))
-   collection)
-  ([collection document insert-options]
-   (.insertOne ^MongoCollection collection
+  generate one. Returns the db."
+  ([db coll document]
+   (.insertOne (collection db coll) (c/to-db-value document)))
+  ([db coll document insert-options]
+   (.insertOne (collection db coll)
                (c/to-db-value document)
                (i/->InsertOneOptions insert-options))
-   collection))
+   db))
 
 (defn insert-tx
   "Insert document to the collection with a session, probably with an active transaction.
-  If the document is missing an identifier, the driver should generate one. Returns the collection."
-  ([session collection document]
-   (.insertOne ^MongoCollection collection
+  If the document is missing an identifier, the driver should generate one. Returns the session."
+  ([session db coll document]
+   (.insertOne (collection db coll)
                ^ClientSession session
                (c/to-db-value document))
-   collection)
-  ([session collection document insert-options]
-   (.insertOne ^MongoCollection collection
+   session)
+  ([session db coll document insert-options]
+   (.insertOne (collection db coll)
                ^ClientSession session
                (c/to-db-value document)
                (i/->InsertOneOptions insert-options))
-   collection))
+   session))
 
 (defn insert-many
-  "Insert one or more documents. Returns the collection."
-  ([collection documents]
-   (.insertMany ^MongoCollection collection
+  "Insert one or more documents. Returns the db."
+  ([db coll documents]
+   (.insertMany (collection db coll)
                 (map c/to-db-value documents))
-   collection)
-  ([collection documents insert-options]
-   (.insertMany ^MongoCollection collection
+   db)
+  ([db coll documents insert-options]
+   (.insertMany (collection db coll)
                 ^List (map c/to-db-value documents)
                 (i/->InsertManyOptions insert-options))
-   collection))
+   db))
 
 (defn insert-many-tx
   "Insert one or more document with a session, probably with an active transaction.
-  Returns the collection."
-  ([session collection documents]
-   (.insertMany ^MongoCollection collection
+  Returns the session."
+  ([session db coll documents]
+   (.insertMany (collection db coll)
                 ^ClientSession session
                 ^List (map c/to-db-value documents))
-   collection)
-  ([session collection documents insert-options]
-   (.insertMany ^MongoCollection collection
+   session)
+  ([session db coll documents insert-options]
+   (.insertMany (collection db coll)
                 ^ClientSession session
                 ^List (map c/to-db-value documents)
                 (i/->InsertManyOptions insert-options))
-   collection))
+   session))
 
 ;; Query
 
@@ -278,14 +280,14 @@
   "Returns a query context (an instance of com.mongodb.client.FindIterable). This
   context can be refined with various `with-*` functions below. Query is executed by
   the `open-cursor` function."
-  [collection]
-  (.find ^MongoCollection collection))
+  [db coll]
+  (.find (collection db coll)))
 
 (defn query-tx
   "Returns a query context (an instance of com.mongodb.client.FindIterable) with
   a session, probably with an active transaction."
-  [session collection]
-  (.find ^MongoCollection collection ^ClientSession session))
+  [session db coll]
+  (.find (collection db coll) ^ClientSession session))
 
 (defn filter
   "Apply a filter document to query context. Returns the query context."
@@ -349,22 +351,22 @@
 
 (defn find-one
   "Helper to return a first document that matches the filter document."
-  [collection filter-document]
-  (-> (query collection)
+  [db coll filter-document]
+  (-> (query db coll)
       (filter filter-document)
       (get-first)))
 
 (defn find-one-tx
   "Helper to return a first document that matches the filter document."
-  [session collection filter]
-  (-> (query-tx session collection)
+  [session db coll filter]
+  (-> (query-tx session db coll)
       (filter filter)
       (get-first)))
 
 (defn find-all
   "Helper to return all documents that match the filter document. Not lazy."
-  [collection filter-document]
-  (with-open [cursor (-> (query collection)
+  [db coll filter-document]
+  (with-open [cursor (-> (query db coll)
                          (filter filter-document)
                          (open-cursor))]
     (->> cursor
@@ -373,8 +375,8 @@
 
 (defn find-all-tx
   "Helper to return all documents that match the filter document. Not lazy."
-  [session collection filter-document]
-  (with-open [cursor (-> (query-tx session collection)
+  [session db coll filter-document]
+  (with-open [cursor (-> (query-tx session db coll)
                          (filter filter-document)
                          (open-cursor))]
     (->> cursor
@@ -407,10 +409,10 @@
 (defn update
   "Update a single document in the collection according to the specified arguments.
   Returns a map of update results."
-  ([collection filter-document update-document]
-   (update collection filter-document update-document nil))
-  ([collection filter-document update-document update-options]
-   (-> (.updateOne ^MongoCollection collection
+  ([db coll filter-document update-document]
+   (update db coll filter-document update-document nil))
+  ([db coll filter-document update-document update-options]
+   (-> (.updateOne (collection db coll)
                    ^Bson (c/to-db-value filter-document)
                    ^Bson (c/to-db-value update-document)
                    (i/->UpdateOptions update-options))
@@ -419,14 +421,14 @@
 (defn update-tx
   "Update a single document in the collection according to the specified arguments.
   Returns a map of update results."
-  ([session collection filter-document update-document]
-   (-> (.updateOne ^MongoCollection collection
+  ([session db coll filter-document update-document]
+   (-> (.updateOne (collection db coll)
                    ^ClientSession session
                    ^Bson (c/to-db-value filter-document)
                    ^Bson (c/to-db-value update-document))
        (i/UpdateResult->clj)))
-  ([session collection filter-document update-document update-options]
-   (-> (.updateOne ^MongoCollection collection
+  ([session db coll filter-document update-document update-options]
+   (-> (.updateOne (collection db coll)
                    ^ClientSession session
                    ^Bson (c/to-db-value filter-document)
                    ^Bson (c/to-db-value update-document)
@@ -436,10 +438,10 @@
 (defn update-many
   "Update all documents in the collection according to the specified arguments.
   Returns a map of update results."
-  ([collection filter-document update-document]
-   (update-many collection filter-document update-document nil))
-  ([collection filter-document update-document update-options]
-   (-> (.updateMany ^MongoCollection collection
+  ([db coll filter-document update-document]
+   (update-many db coll filter-document update-document nil))
+  ([db coll filter-document update-document update-options]
+   (-> (.updateMany (collection db coll)
                     ^Bson (c/to-db-value filter-document)
                     ^Bson (c/to-db-value update-document)
                     (i/->UpdateOptions update-options))
@@ -448,8 +450,8 @@
 (defn update-many-tx
   "Update all documents in the collection according to the specified arguments.
   Returns a map of update results."
-  [session collection filter-document update-document update-options]
-  (-> (.updateMany ^MongoCollection collection
+  [session db coll filter-document update-document update-options]
+  (-> (.updateMany (collection db coll)
                    ^ClientSession session
                    ^Bson (c/to-db-value filter-document)
                    ^Bson (c/to-db-value update-document)
@@ -461,16 +463,16 @@
 (defn delete
   "Removes at most one document from the collection that matches the given filter.
   If no documents match, the collection is not modified. Returns delete result as a map."
-  [collection filter-document]
-  (-> (.deleteOne ^MongoCollection collection
+  [db coll filter-document]
+  (-> (.deleteOne (collection db coll)
                   (c/to-db-value filter-document))
       (i/DeleteResult->clj)))
 
 (defn delete-tx
   "Removes at most one document from the collection that matches the given filter.
   If no documents match, the collection is not modified. Returns delete result as a map."
-  [session collection filter-document]
-  (-> (.deleteOne ^MongoCollection collection
+  [session db coll filter-document]
+  (-> (.deleteOne (collection db coll)
                   ^ClientSession session
                   ^Bson (c/to-db-value filter-document))
       (i/DeleteResult->clj)))
@@ -478,16 +480,16 @@
 (defn delete-many
   "Removes all documents from the collection that match the given query filter.
   If no documents match, the collection is not modified. Returns delete result as a map."
-  [collection filter-document]
-  (-> (.deleteMany ^MongoCollection collection
+  [db coll filter-document]
+  (-> (.deleteMany (collection db coll)
                    (c/to-db-value filter-document))
       (i/DeleteResult->clj)))
 
 (defn delete-many-tx
   "Removes all documents from the collection that match the given query filter.
   If no documents match, the collection is not modified. Returns delete result as a map."
-  [session collection filter-document]
-  (-> (.deleteMany ^MongoCollection collection
+  [session db coll filter-document]
+  (-> (.deleteMany (collection db coll)
                    ^ClientSession session
                    ^Bson (c/to-db-value filter-document))
       (i/DeleteResult->clj)))
@@ -505,8 +507,8 @@
      (throw (ex-info (format "expected matched-count to be %d, but it was %d"
                              expected-count
                              matched-count)
-                     {:error expected-matches!
-                      :matched-count matched-count
+                     {:error          expected-matches!
+                      :matched-count  matched-count
                       :expected-count expected-count})))
    result))
 
@@ -516,34 +518,85 @@
 
 (defn count
   "Counts the number of documents in the collection according to the given options."
-  ([collection]
-   (.countDocuments ^MongoCollection collection))
-  ([collection filter-document]
-   (.countDocuments ^MongoCollection collection
+  ([db coll]
+   (.countDocuments (collection db coll)))
+  ([db coll filter-document]
+   (.countDocuments (collection db coll)
                     ^Bson (c/to-db-value filter-document)))
-  ([collection filter-document count-options]
-   (.countDocuments ^MongoCollection collection
+  ([db coll filter-document count-options]
+   (.countDocuments (collection db coll)
                     ^Bson (c/to-db-value filter-document)
                     (i/->CountOptions count-options))))
 
 (defn count-tx
-  ([session collection]
-   (.countDocuments ^MongoCollection collection
+  ([session db coll]
+   (.countDocuments (collection db coll)
                     ^ClientSession session))
-  ([session collection filter-document]
-   (.countDocuments ^MongoCollection collection
+  ([session db coll filter-document]
+   (.countDocuments (collection db coll)
                     ^ClientSession session
                     ^Bson (c/to-db-value filter-document)))
-  ([session collection filter-document count-options]
-   (.countDocuments ^MongoCollection collection
+  ([session db coll filter-document count-options]
+   (.countDocuments (collection db coll)
                     ^ClientSession session
                     ^Bson (c/to-db-value filter-document)
                     (i/->CountOptions count-options))))
 
 ;; Indexing
 
+; collection.createIndex(Indexes.ascending("name"));
+
+(defn get-indexes [db coll]
+  (map #(c/from-db-value % keyword) (.listIndexes (collection db coll))))
+
+(defn create-index
+  "Create an index for given fields. The `index` must be a vector where the first
+  element is the index type, and the rest are options for index. Supported index
+  types are:
+
+  :ascending     - index for an ascending index on the given fields
+  :descending    - index for an descending index on the given fields
+  :geo2dsphere   - index for an 2dsphere index on the given fields
+  :geo-haystack  - index for a geohaystack index on the given field
+  :text          - index for a text index on the given field
+  :hashed        - index for a hashed index on the given field
+  :compound      - compound index specifications
+
+  For example,
+
+    `(create-index db coll [:ascending :first-name :last-name])`
+
+  creates an ascending index for fields `:first-name` and `:last-name`. Compound
+  index example:
+
+    `(create-index db coll [:compound
+                            [:ascending :first-name :last-name]
+                            [:descending :email]])`
+
+  The fourth, optional argument, is the index options. Possible values are documented
+  at http://mongodb.github.io/mongo-java-driver/3.8/javadoc/?com/mongodb/client/model/IndexOptions.html
+
+  For example, to create an unique index on `:email`:
+
+    `(create-index db coll [:ascending :email] {:unique true})`
+  "
+  ([db coll index]
+   (.createIndex (collection db coll) (i/index index)))
+  ([db coll index options]
+   (.createIndex (collection db coll) ^Bson (i/index index) (i/->IndexOptions options))))
+
+(defn drop-index
+  "Drops the index given its name."
+  [db coll index-name]
+  (.dropIndex (collection db coll) ^String index-name))
+
+(defn drop-indexes
+  "Drop all the indexes on this collection, except for the default on _id."
+  [db coll]
+  (.dropIndexes (collection db coll)))
+
+
 ;; TODO: batchSize
-;; TODO: Indexing
 ;; TODO: watch client, database, or collection
 ;; TODO: atomic findOneAndDelete, findOneAndUpdate, etr...
 ;; TODO: bulkWrite
