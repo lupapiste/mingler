@@ -296,6 +296,13 @@
   (def db (m/database client :foo))
   (def coll (m/collection db :foo))
 
+  (m/get-indexes db coll)
+  (m/create-index db coll [:compound
+                           [:ascending :foo]
+                           [:descending :boz :biz]]
+                  {:name "Bar"})
+  (m/drop-index db coll "Bar")
+
   (with-open [session (m/open-session client)]
     (m/with-tx session
       (tx-insert db coll session {:_id "1" :name "Fofo"})))

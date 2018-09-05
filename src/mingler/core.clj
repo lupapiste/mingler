@@ -4,10 +4,10 @@
   (:require [mingler.conversion :as c]
             [mingler.interop :as i])
   (:import (java.util List)
+           (com.mongodb Function Block)
            (com.mongodb.client MongoClients MongoClient ClientSession
                                MongoDatabase MongoCollection
                                FindIterable MongoCursor)
-           (com.mongodb Function Block)
            (org.bson.conversions Bson)))
 
 ;;
@@ -544,8 +544,59 @@
 
 ;; Indexing
 
+; collection.createIndex(Indexes.ascending("name"));
+
+(defn get-indexes [db coll]
+  (map #(c/from-db-value % keyword) (.listIndexes (collection db coll))))
+
+(defn create-index
+  "Create an index for given fields. The `index` must be a vector where the first
+  element is the index type, and the rest are options for index. Supported index
+  types are:
+
+  :ascending     - index for an ascending index on the given fields
+  :descending    - index for an descending index on the given fields
+  :geo2dsphere   - index for an 2dsphere index on the given fields
+  :geo-haystack  - index for a geohaystack index on the given field
+  :text          - index for a text index on the given field
+  :hashed        - index for a hashed index on the given field
+  :compound      - compound index specifications
+
+  For example,
+
+    `(create-index db coll [:ascending :first-name :last-name])`
+
+  creates an ascending index for fields `:first-name` and `:last-name`. Compound
+  index example:
+
+    `(create-index db coll [:compound
+                            [:ascending :first-name :last-name]
+                            [:descending :email]])`
+
+  The fourth, optional argument, is the index options. Possible values are documented
+  at http://mongodb.github.io/mongo-java-driver/3.8/javadoc/?com/mongodb/client/model/IndexOptions.html
+
+  For example, to create an unique index on `:email`:
+
+    `(create-index db coll [:ascending :email] {:unique true})`
+  "
+  ([db coll index]
+   (.createIndex (collection db coll) (i/index index)))
+  ([db coll index options]
+   (.createIndex (collection db coll) ^Bson (i/index index) (i/->IndexOptions options))))
+
+(defn drop-index
+  "Drops the index given its name."
+  [db coll index-name]
+  (.dropIndex (collection db coll) ^String index-name))
+
+(defn drop-indexes
+  "Drop all the indexes on this collection, except for the default on _id."
+  [db coll]
+  (.dropIndexes (collection db coll)))
+
+
 ;; TODO: batchSize
-;; TODO: Indexing
 ;; TODO: watch client, database, or collection
 ;; TODO: atomic findOneAndDelete, findOneAndUpdate, etr...
 ;; TODO: bulkWrite
