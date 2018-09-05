@@ -5,7 +5,8 @@
                  [org.xerial.snappy/snappy-java "1.1.7.2"]
                  ; TODO: drop schema dep
                  [prismatic/schema "1.1.9"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.9.0"]
+  :profiles {:dev {:source-paths ["dev"]
+                   :dependencies [[org.clojure/clojure "1.9.0"]
                                   [eftest "0.5.2"]
                                   [criterium "0.4.4"]
                                   [metosin/testit "0.4.0-SNAPSHOT"]
