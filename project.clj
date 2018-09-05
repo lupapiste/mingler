@@ -1,4 +1,4 @@
-(defproject evolta/mingler "3.8.0-1"
+(defproject evolta/mingler "3.8.0-2-SNAPSHOT"
   :description "Minimal clojure wrapper for org.mongodb/mongodb-driver MongoDB Java driver"
   :url "https://github.com/lupapiste/mingler"
   :dependencies [[org.mongodb/mongodb-driver "3.8.0"]
